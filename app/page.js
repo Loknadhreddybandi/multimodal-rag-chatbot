@@ -7,13 +7,11 @@ export default function Home() {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0); // OCR progress
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [isMounted, setIsMounted] = useState(false);  // <-- added
+  const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true); // <-- added
-  }, []);
+  useEffect(() => setIsMounted(true), []);
 
   function resizeAndCompressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -22,11 +20,10 @@ export default function Home() {
 
       img.onload = () => {
         let { width, height } = img;
-
         if (width > maxWidth || height > maxHeight) {
           const scale = Math.min(maxWidth / width, maxHeight / height);
-          width = width * scale;
-          height = height * scale;
+          width *= scale;
+          height *= scale;
         }
 
         const canvas = document.createElement("canvas");
@@ -39,15 +36,12 @@ export default function Home() {
           (blob) => {
             if (blob) {
               resolve(new File([blob], file.name, { type: "image/jpeg" }));
-            } else {
-              reject(new Error("Canvas is empty"));
-            }
+            } else reject(new Error("Canvas is empty"));
           },
           "image/jpeg",
           quality
         );
       };
-
       img.onerror = () => reject(new Error("Image load error"));
     });
   }
@@ -59,9 +53,7 @@ export default function Home() {
     try {
       const compressedFile = await resizeAndCompressImage(originalFile);
       setImage(compressedFile);
-      if (typeof window !== "undefined") {
-        setImagePreview(URL.createObjectURL(compressedFile));
-      }
+      setImagePreview(URL.createObjectURL(compressedFile));
     } catch (error) {
       setError("Image processing failed: " + error.message);
     }
@@ -84,34 +76,38 @@ export default function Home() {
     setImagePreview(null);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        body: formData,
-      });
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let result = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        result += decoder.decode(value, { stream: true });
-        const match = result.match(/"progress":(\d+)/);
-        if (match) setProgress(parseInt(match[1]));
+      const response = await fetch("/api/chat", { method: "POST", body: formData });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid server response: " + text);
       }
 
-      const data = JSON.parse(result);
       if (!response.ok) throw new Error(data.reply || "Unknown error");
 
+      // Display OCR text if available
       if (data.ocrText) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Extracted text: ${data.ocrText}` }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `📝 OCR Extracted Text:\n${data.ocrText}` },
+        ]);
       }
 
+      // Display Image Classification if available
+      if (data.imageLabel) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `🖼️ Image Classification:\n${data.imageLabel}` },
+        ]);
+      }
+
+      // Display chatbot reply
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
     } catch (err) {
       setError(err.message);
-      setMessages([...newMessages, { role: "assistant", content: "Error: " + err.message }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Error: " + err.message }]);
     } finally {
       setLoading(false);
     }
@@ -125,19 +121,14 @@ export default function Home() {
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`p-2 rounded-md ${msg.role === "user" ? "bg-blue-600 self-end" : "bg-gray-700 self-start"}`}
+            className={`p-2 rounded-md whitespace-pre-line ${msg.role === "user" ? "bg-blue-600 self-end" : "bg-gray-700 self-start"}`}
           >
             {msg.content}
           </div>
         ))}
-        {loading && (
-          <div className="text-gray-400 italic">
-            Processing... {progress > 0 && `${progress}%`}
-          </div>
-        )}
+        {loading && <div className="text-gray-400 italic">Processing... {progress > 0 && `${progress}%`}</div>}
       </div>
 
-      {/* Render preview only after client mount */}
       {isMounted && imagePreview && (
         <div className="mt-2">
           <img src={imagePreview} alt="preview" className="max-h-40 rounded" />
