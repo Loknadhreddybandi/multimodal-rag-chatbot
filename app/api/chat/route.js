@@ -9,13 +9,12 @@ export async function POST(req) {
 
     let imageLabel = "";
 
+    // --- Fast Hugging Face Image Classification ---
     if (image) {
       const buffer = Buffer.from(await image.arrayBuffer());
-
-      // --- Hugging Face Fast Image Classification ---
       try {
         const hfImage = await axios.post(
-          "https://api-inference.huggingface.co/models/google/mobilenet_v2_1.0_224",
+          "https://api-inference.huggingface.co/models/google/vit-base-patch16-224",
           buffer,
           {
             headers: {
@@ -24,16 +23,17 @@ export async function POST(req) {
             },
           }
         );
-        imageLabel = hfImage.data?.[0]?.label || "[Unknown object]";
+        imageLabel = hfImage.data?.[0]?.label || "[Unable to classify image]";
       } catch (e) {
         console.error("Image classification failed:", e);
         imageLabel = "[Classification failed]";
       }
     }
 
+    // Combine text + image label
     const combinedPrompt = `${message}${imageLabel ? `\nDetected Image Content: ${imageLabel}` : ""}`;
 
-    // --- Groq for reasoning ---
+    // --- Groq for text response ---
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
