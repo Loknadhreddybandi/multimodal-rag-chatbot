@@ -1,103 +1,168 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0); // OCR progress
+  const [error, setError] = useState("");
+  const [isMounted, setIsMounted] = useState(false);  // <-- added
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    setIsMounted(true); // <-- added
+  }, []);
+
+  function resizeAndCompressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+
+      img.onload = () => {
+        let { width, height } = img;
+
+        if (width > maxWidth || height > maxHeight) {
+          const scale = Math.min(maxWidth / width, maxHeight / height);
+          width = width * scale;
+          height = height * scale;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: "image/jpeg" }));
+            } else {
+              reject(new Error("Canvas is empty"));
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      img.onerror = () => reject(new Error("Image load error"));
+    });
+  }
+
+  const handleImageUpload = async (e) => {
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    try {
+      const compressedFile = await resizeAndCompressImage(originalFile);
+      setImage(compressedFile);
+      if (typeof window !== "undefined") {
+        setImagePreview(URL.createObjectURL(compressedFile));
+      }
+    } catch (error) {
+      setError("Image processing failed: " + error.message);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() && !image) return;
+    setLoading(true);
+    setError("");
+    setProgress(0);
+
+    const formData = new FormData();
+    formData.append("message", input);
+    if (image) formData.append("image", image);
+
+    const newMessages = [...messages, { role: "user", content: input || "📷 Image sent" }];
+    setMessages(newMessages);
+    setInput("");
+    setImage(null);
+    setImagePreview(null);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        body: formData,
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        result += decoder.decode(value, { stream: true });
+        const match = result.match(/"progress":(\d+)/);
+        if (match) setProgress(parseInt(match[1]));
+      }
+
+      const data = JSON.parse(result);
+      if (!response.ok) throw new Error(data.reply || "Unknown error");
+
+      if (data.ocrText) {
+        setMessages((prev) => [...prev, { role: "assistant", content: `Extracted text: ${data.ocrText}` }]);
+      }
+
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      setError(err.message);
+      setMessages([...newMessages, { role: "assistant", content: "Error: " + err.message }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white">
+      <h1 className="text-2xl font-bold mb-4">Multimodal RAG Chatbot</h1>
+
+      <div className="w-full max-w-lg bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col space-y-2 overflow-y-auto max-h-[400px]">
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`p-2 rounded-md ${msg.role === "user" ? "bg-blue-600 self-end" : "bg-gray-700 self-start"}`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {msg.content}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-gray-400 italic">
+            Processing... {progress > 0 && `${progress}%`}
+          </div>
+        )}
+      </div>
+
+      {/* Render preview only after client mount */}
+      {isMounted && imagePreview && (
+        <div className="mt-2">
+          <img src={imagePreview} alt="preview" className="max-h-40 rounded" />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      )}
+
+      {error && <div className="text-red-500 mt-2">{error}</div>}
+
+      <div className="w-full max-w-lg flex mt-4 space-x-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 p-2 rounded-md text-black"
+          placeholder="Type your message..."
+        />
+        <input type="file" onChange={handleImageUpload} className="p-2 bg-gray-700 rounded-md" />
+        <button
+          onClick={sendMessage}
+          className="bg-blue-500 px-4 py-2 rounded-md hover:bg-blue-600"
+          disabled={loading}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          {loading ? "Sending..." : "Send"}
+        </button>
+      </div>
+    </main>
   );
 }
