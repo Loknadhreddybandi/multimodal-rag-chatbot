@@ -1,56 +1,53 @@
-# Multimodal RAG Chatbot
+# EdTech Multimodal RAG Chatbot
 
-A chatbot that processes **text** and **image** inputs using **Retrieval-Augmented Generation (RAG)** with OCR text extraction.  
-Backend uses Groq API and Tesseract.js. Frontend is built with React and Next.js, deployable on Vercel.
+A chatbot supporting **text + image inputs** with **RAG (Retrieval-Augmented Generation)** and optional **tool-calling**.
 
----
+### Features
+- Text & Image query support
+- Retrieval-Augmented Generation (RAG)
+- Tool-calling (e.g., search, UI generation)
+- Deployed on Vercel
 
-## Features
-
-- Text and image input support
-- Client-side image compression and resizing
-- Backend OCR with Tesseract.js
-- Context-aware chatbot responses via Groq API
-- Conversation history with user/assistant roles
-- OCR progress display and image preview UI
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js (v16+)
-- npm (comes with Node.js)
-- Groq API key ([sign up here](https://groq.com))
+### Live Demo
+[Click here to try the chatbot](https://multimodal-rag-chatbot-7eqp-git-main-loknadh-reddys-projects.vercel.app)
 
 ### Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Loknadhreddybandi/edtech-multimodal-chatbot.git
+   cd edtech-multimodal-chatbot
+2. Install dependencies:
+  npm install
+3. GROQ_API_KEY=your_key_here
+4. Run locally:
+   npm run dev
 
+Tech Stack
+Next.js + Vercel AI SDK
+
+Groq API
+
+Retrieval-Augmented Generation (RAG)
+
+
+---
+
+### **Step 3: Finalize Vercel Deployment**
+Make sure:
+1. **Environment Variables** (like `GROQ_API_KEY`) are set in Vercel:  
+   Go to **Vercel Dashboard → Project → Settings → Environment Variables**.
+2. **Branch linked**: The Vercel project must be linked to `main` branch of your GitHub repo.  
+
+Run:
 ```bash
-git clone https://github.com/Loknadhreddybandi/multimodal-rag-chatbot.git
-cd multimodal-rag-chatbot
-npm install
+vercel --prod
 
-Create a .env.local file in the root with:
-    GROQ_API_KEY=your_groq_api_key_here
-
-Run locally
-   bash / terminal
-    npm run dev
-
-/pages
-  ├── index.js        # Frontend UI
-  └── /api
-      └── chat.js     # Backend API for chat and OCR
-/public               # Static files
-.env.local            # Env variables (not committed)
-package.json          # Dependencies & scripts
-README.md             # This file
+Step 4: Submission
 
 
-Deployment
-Deploy easily on Vercel by linking your GitHub repo and setting the GROQ_API_KEY env variable.
+GitHub Repo: https://github.com/Loknadhreddybandi/edtech-multimodal-chatbot
 
+Live Chatbot URL: https://multimodal-rag-chatbot.vercel.app (or the final prod URL from Step 3)
 
 
 
