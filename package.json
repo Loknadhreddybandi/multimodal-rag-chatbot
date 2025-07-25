@@ -2,15 +2,24 @@
   "name": "multimodal-rag-chatbot",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:vector": "node scripts/buildVectorStore.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.7.0",
+    "@langchain/community": "^0.3.49",
+    "@langchain/core": "^0.3.66",
+    "@langchain/openai": "^0.6.2",
     "axios": "^1.11.0",
+    "dotenv": "^16.4.5",
     "form-data": "^4.0.4",
+    "hnswlib-node": "^3.0.0",
+    "langchain": "^0.3.30",
     "next": "15.4.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
